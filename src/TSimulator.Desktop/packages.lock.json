@@ -1,0 +1,16 @@
+{
+  "version": 1,
+  "dependencies": {
+    "net10.0": {
+      "Raylib-cs": {
+        "type": "Direct",
+        "requested": "[8.1.0, )",
+        "resolved": "8.1.0",
+        "contentHash": "5BH1IoueW/47PjykoD5rHSQGkfG/0ROdv1Lj/LiJ+m/KBmDAmDRyXRpgS/qOZL6ScIMtnY5nG31dQ58y/VVXUg=="
+      },
+      "tsimulator.core": {
+        "type": "Project"
+      }
+    }
+  }
+}

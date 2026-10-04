@@ -1,0 +1,10 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/TSimulator.Cli/TSimulator.Cli.csproj" />
+    <Project Path="src/TSimulator.Core/TSimulator.Core.csproj" />
+    <Project Path="src/TSimulator.Desktop/TSimulator.Desktop.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/TSimulator.Tests/TSimulator.Tests.csproj" />
+  </Folder>
+</Solution>
