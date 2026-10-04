@@ -76,7 +76,7 @@ dotnet test TSimulator.slnx -c Release
 dotnet run --project src/TSimulator.Desktop -c Release -- --smoke 10 --no-official --screenshot artifacts/smoke.png
 ```
 
-PR/PushのCIで3OS・4アーキテクチャのビルド、競技・物理・再生テスト、ネイティブ描画のスモークテストを実行します。`v*`タグをPushすると各OSの自己完結ZIP、SHA-256、GitHub Releaseを自動生成します。手動でもworkflow_dispatchでビルドできます。Mac版は`.app`形式です。配布物は未署名で、Appleの公証は行っていません。
+PR/PushのCIで3OS・4アーキテクチャのビルド、競技・物理・再生テスト、ネイティブライブラリ読込を検証します。描画スモークテストはLinuxの仮想画面で実行します。Windows・MacのGitHub仮想環境には必要なOpenGL描画機能がないため、両OSの実機描画は別途確認が必要です。`v*`タグをPushすると各OSの自己完結ZIP、SHA-256、GitHub Releaseを自動生成します。手動でもworkflow_dispatchでビルドできます。Mac版は`.app`形式です。配布物は未署名で、Appleの公証は行っていません。
 
 描画ライブラリへの依存はDesktopのみ。競技・物理・入力はCore、無描画実行とツールはCliです。独自制御は`IRobotController`を実装して`PracticeBot`と差し替えられます。詳しくは[設計](docs/architecture.md)、[ルール対応](docs/rules.md)、[開発手順](CONTRIBUTING.md)を参照してください。
 

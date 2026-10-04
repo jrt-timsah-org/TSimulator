@@ -39,12 +39,8 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y xvfb libgl1 libx11-6 libxrandr2 libxi6 libxcursor1 libxinerama1
           xvfb-run -a dotnet run --project src/TSimulator.Desktop -c Release --no-build -- --smoke 10 --screenshot artifacts/smoke.png
-      - name: Native graphics smoke (Windows and Mac)
-        if: runner.os != 'Linux'
-        run: dotnet run --project src/TSimulator.Desktop -c Release --no-build -- --smoke 10 --screenshot artifacts/smoke.png
-      - name: Fallback graphics smoke
-        if: runner.os != 'Linux'
-        run: dotnet run --project src/TSimulator.Desktop -c Release --no-build -- --smoke 3 --no-official --screenshot artifacts/fallback.png
+      - name: Native library compatibility (all platforms)
+        run: dotnet run --project src/TSimulator.Desktop -c Release --no-build -- --native-check
       - name: Replay round-trip
         shell: bash
         run: |

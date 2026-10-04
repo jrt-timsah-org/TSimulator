@@ -71,8 +71,19 @@ public sealed class SimulatorApp
     public int Run()
     {
         if (args.Contains("--help")) { Console.WriteLine("TSimulator.Desktop [--scenario FILE] [--smoke FRAMES --screenshot PNG] [--settings] [--no-official]"); return 0; }
-        Raylib.SetConfigFlags(ConfigFlags.ResizableWindow | ConfigFlags.Msaa4xHint);
+        if (args.Contains("--native-check"))
+        {
+            Raylib.SetRandomSeed(42);
+            Console.WriteLine($"NATIVE OK: {System.Runtime.InteropServices.RuntimeInformation.RuntimeIdentifier}, sample={Raylib.GetRandomValue(1,1)}");
+            return 0;
+        }
+        Raylib.SetConfigFlags(ConfigFlags.ResizableWindow | (smokeFrames>0 ? 0 : ConfigFlags.Msaa4xHint));
         Raylib.InitWindow(1440,900,"TSimulator | CoRE-2 2027");
+        if (!Raylib.IsWindowReady())
+        {
+            Console.Error.WriteLine("Could not create an OpenGL 3.3 window. Check graphics drivers and run from a graphical desktop.");
+            return 2;
+        }
         Raylib.SetWindowMinSize(1100,760); Raylib.SetExitKey(KeyboardKey.Null); Raylib.SetTargetFPS(settings.TargetFps);
         var glyphFile = Path.Combine(Paths.Content,"assets","fonts","ui-glyphs.txt");
         var glyphs = (File.Exists(glyphFile) ? File.ReadAllText(glyphFile) : string.Concat(Labels.Values))

@@ -30,6 +30,6 @@ The CLI reports wall duration, ticks/second and current-thread allocations for a
 
 ## Portability and release
 
-.NET 10 + Raylib-cs 8.1.0 / raylib 6.0 provide native bindings for linux-x64, win-x64, osx-arm64 and osx-x64. Each artifact is built and smoke-tested on a matching GitHub runner. Release archives contain .NET runtime, platform-native library, font/OFL, profiles and notices. Mac archives contain an `.app` bundle with an Info.plist; signing/notarization is not configured. CI publishes only after all matrix build jobs succeed.
+.NET 10 + Raylib-cs 8.1.0 / raylib 6.0 provide native bindings for linux-x64, win-x64, osx-arm64 and osx-x64. Each artifact is built, unit-tested and checked for native-library loading on a matching GitHub runner. Linux additionally runs GPU drawing through Mesa/Xvfb. GitHub Windows and Mac virtual runners cannot create the required OpenGL context; their GUI rendering requires physical-machine verification. Release archives contain .NET runtime, platform-native library, font/OFL, profiles and notices. Mac archives contain an `.app` bundle with an Info.plist; signing/notarization is not configured. CI publishes only after all matrix build jobs succeed.
 
 A semantic version tag triggers publishing. Keep current replay compatibility when possible; use a new format/version when changing semantics. Libraries are pinned by package lock files. SDK uses a .NET 10 feature-band roll-forward. No Unity editor, external game engine or service is required.
