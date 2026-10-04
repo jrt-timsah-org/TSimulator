@@ -10,6 +10,7 @@ a = p.parse_args()
 root = pathlib.Path(__file__).resolve().parent.parent
 out = pathlib.Path(a.output).resolve(); out.mkdir(parents=True, exist_ok=True)
 stage = out / ('stage-' + a.rid)
+if stage.exists(): shutil.rmtree(stage)
 stage.mkdir(parents=True, exist_ok=True)
 if a.rid.startswith('osx'):
     app = stage / 'TSimulator.app' / 'Contents'
@@ -20,7 +21,7 @@ if a.rid.startswith('osx'):
             'CFBundleIdentifier': 'org.jrt-timsah.tsimulator', 'CFBundleExecutable': 'TSimulator.Desktop',
             'CFBundlePackageType': 'APPL', 'CFBundleShortVersionString': a.version,
             'CFBundleVersion': a.version, 'NSHighResolutionCapable': True,
-            'LSMinimumSystemVersion': '12.0'}, f)
+            'LSMinimumSystemVersion': '14.0'}, f)
 else:
     destination = stage / 'TSimulator'; destination.mkdir(parents=True, exist_ok=True)
 shutil.copytree(a.input, destination, dirs_exist_ok=True)
