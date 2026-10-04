@@ -84,11 +84,12 @@ public sealed record RobotSpec
     public bool Holonomic { get; init; } = true;
     public string? ModelPath { get; init; }
     public float ModelScale { get; init; } = 1;
+    public RobotAssembly? Assembly { get; init; }
     public void Validate(RuleProfile rules, bool sandbox)
     {
         float[] numbers = [Width, Depth, Height, MassKg, MaxSpeed, Acceleration, TurnSpeed,
             ShotSpeed, ShotHeight, ShotInterval, ArmReach, ArmMinHeight, ArmMaxHeight, ModelScale];
-        if (numbers.Any(x => !float.IsFinite(x) || x <= 0) || Width > 2 || Depth > 2 || Height > 3
+        if (string.IsNullOrWhiteSpace(Name) || Name.Length>128 || numbers.Any(x => !float.IsFinite(x) || x <= 0) || Width > 2 || Depth > 2 || Height > 3
             || MaxSpeed > 30 || ShotSpeed > 100 || ShotInterval < .01f || MagazineCapacity is < 1 or > 1000
             || ArmMaxHeight < ArmMinHeight || ArmReach > 3)
             throw new InvalidDataException("Invalid robot dimensions or motion parameters.");
@@ -120,6 +121,7 @@ public sealed record Scenario
     public string Name { get; init; } = "CoRE-2 2027 / semifinal";
     public RuleProfile Rules { get; init; } = new();
     public RobotSpec Robot { get; init; } = new();
+    public Dictionary<int,RobotSpec> RobotOverrides { get; init; } = [];
     public PhysicsSettings Physics { get; init; } = new();
     public int RobotsPerSide { get; init; } = 2;
     public bool Sandbox { get; init; }
@@ -133,6 +135,9 @@ public sealed record Scenario
         Rules.Validate(); Robot.Validate(Rules, Sandbox); Physics.Validate();
         if (RobotsPerSide is < 1 or > 16 || (!Sandbox && RobotsPerSide is not (2 or 3)) || RpBonus is < 0 or > 100000)
             throw new InvalidDataException("Robot count must be 2 or 3 in competition practice (1–16 in sandbox).");
+        if (RobotOverrides is null || RobotOverrides.Any(x=>x.Key<0 || x.Key>=RobotsPerSide*2 || x.Value is null))
+            throw new InvalidDataException("Invalid robot override target.");
+        foreach(var spec in RobotOverrides.Values)spec.Validate(Rules,Sandbox);
         if (ExtraObstacles.Length > 1000 || ExtraObstacles.Any(x => !float.IsFinite(x.X) || !float.IsFinite(x.Z)
             || !float.IsFinite(x.Yaw) || !float.IsFinite(x.Width) || x.Width <= 0
             || !float.IsFinite(x.Depth) || x.Depth <= 0 || !float.IsFinite(x.Height) || x.Height <= 0))

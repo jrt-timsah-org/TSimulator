@@ -93,10 +93,21 @@ public sealed class WorldRenderer : IDisposable
         }
         BoxAt(space.World(new(-.1f,spec.Height*.6f,0)),new(.19f,spec.Height*.5f,.2f),yaw,new(151,162,177,255));
         BoxAt(space.World(new(.11f,spec.ShotHeight+.024f,0)),new(.42f,.08f,.24f),yaw,new(52,67,83,255));
+        if(spec.ShotInterval<.15f)
+            foreach(var z in new[] { -.09f,.09f })BoxAt(space.World(new(.28f,spec.ShotHeight+.08f,z)),new(.25f,.05f,.06f),yaw,new(106,145,170,255));
+        var magazineHeight=.05f+Math.Min(.3f,spec.MagazineCapacity/500f);
+        BoxAt(space.World(new(-spec.Depth*.27f,.34f+magazineHeight/2,0)),new(.18f,magazineHeight,.2f),yaw,new(200,163,80,255));
         BoxAt(space.World(new(-.15f,spec.Height*.92f,0)),new(.12f,.08f,.12f),yaw,new(48,58,72,255));
         BoxAt(space.World(new(-.088f,spec.Height*.92f,0)),new(.006f,.04f,.055f),yaw,new(93,197,225,255));
         BoxAt(space.World(new(.15f,robot.ArmHeight,.18f)),new(spec.ArmReach*1.2f,.035f,.035f),yaw,new(164,174,187,255));
         BoxAt(space.World(new(spec.Depth/2+spec.ArmReach,robot.ArmHeight,.04f)),new(.07f,.06f,.16f),yaw,team);
+    }
+    public void DrawPreview(RobotSpec spec)
+    {
+        BoxAt(new(0,-.02f,0),new(2.1f,.04f,1.5f),0,new(39,52,70,255));
+        DrawRobot(new(-1,Side.Red,spec,Vector3.Zero,0,60),Vector3.Zero,0,new(106,237,183,255));
+        Raylib.DrawLine3D(new(-.6f,.005f,0),new(.9f,.005f,0),new(250,101,119,255));
+        Raylib.DrawLine3D(new(0,.005f,-.6f),new(0,.005f,.6f),new(103,169,255,255));
     }
     private void DrawFallback(Simulation sim)
     {

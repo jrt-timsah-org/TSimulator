@@ -1,0 +1,33 @@
+{
+  "id": "standard",
+  "name": "標準機体",
+  "robot": {
+    "name": "標準機体",
+    "width": 0.7,
+    "depth": 0.7,
+    "height": 0.8,
+    "massKg": 25.0,
+    "maxSpeed": 2.5,
+    "acceleration": 5,
+    "turnSpeed": 2,
+    "shotSpeed": 11.5,
+    "shotHeight": 0.1725,
+    "shotInterval": 0.36,
+    "magazineCapacity": 30,
+    "armReach": 0.55,
+    "armMinHeight": 0.3,
+    "armMaxHeight": 0.95,
+    "holonomic": true,
+    "modelPath": null,
+    "modelScale": 1,
+    "assembly": {
+      "modules": {
+        "Chassis": "chassis-standard",
+        "Drive": "drive-omni",
+        "Shooter": "shooter-standard",
+        "Magazine": "magazine-30",
+        "Arm": "arm-standard"
+      }
+    }
+  }
+}

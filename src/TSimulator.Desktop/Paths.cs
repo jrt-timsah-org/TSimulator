@@ -2,10 +2,13 @@ namespace TSimulator.Desktop;
 public static class Paths
 {
     public static string Content { get; } = FindContent();
-    public static string User { get; } = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "TSimulator");
+    public static string User { get; private set; } = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "TSimulator");
+    public static void SetUserDirectory(string path) => User=Path.GetFullPath(path);
     public static string Settings => Path.Combine(User, "settings.json");
     public static string Models => Path.Combine(User, "models", "official");
     public static string Replays => Path.Combine(User, "replays");
+    public static string Modules => Path.Combine(User,"modules");
+    public static string Robots => Path.Combine(User,"robots");
     public static string? OfficialDirectory => File.Exists(Path.Combine(Models, "field.obj")) ? Models
         : File.Exists(Path.Combine(Content, "assets", "models", "official", "field.obj")) ? Path.Combine(Content, "assets", "models", "official") : null;
     private static string FindContent()

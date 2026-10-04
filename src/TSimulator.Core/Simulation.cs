@@ -30,6 +30,9 @@ public sealed class Robot(int id, Side side, RobotSpec spec, Vector3 position, f
     public long PitUntil { get; internal set; }
     public bool PitAuthorized { get; internal set; }
     public bool PitVisit { get; internal set; }
+    public MovementBlock MovementBlockedBy { get; internal set; }
+    public long LastShotAt { get; internal set; } = -1;
+    public ShotFeedback LastShot { get; internal set; }
     public Box Body => new(Position + new Vector3(0, Spec.Height / 2, 0), new(Spec.Depth / 2, Spec.Height / 2, Spec.Width / 2), Yaw);
     public Vector3 Forward => new(MathF.Cos(Yaw), 0, MathF.Sin(Yaw));
     public Vector3 Gripper => Position + Forward * (Spec.Depth / 2 + Spec.ArmReach) + new Vector3(0, ArmHeight + .06f, 0);
@@ -66,17 +69,21 @@ public struct Projectile
     public Vector3 PreviousPosition;
     public Vector3 Velocity;
     public float Age;
+    public long FiredAt;
 }
-public sealed record SimEvent(long Tick, string Kind, string Message);
+public sealed record SimEvent(long Tick, string Kind, string Message, int RobotId = -1, int RelatedRobotId = -1,
+    int Value = 0, Skill Skill = Skill.None, ActionBlockReason Reason = ActionBlockReason.Ready,
+    long RemainingTicks = 0, int MissingRp = 0);
 public sealed record RoundResult(Side? Winner, string Reason);
 
-public sealed class Simulation
+public sealed partial class Simulation
 {
     private readonly List<Robot> robots = [];
     private readonly List<Container> containers = [];
     private readonly List<Projectile> projectiles;
     private readonly Queue<SimEvent> events = new();
     private bool timeBonus;
+    private readonly bool legacyReplay;
     public Scenario Scenario { get; }
     public RuleProfile Rules => Scenario.Rules;
     public long Tick { get; private set; }
@@ -89,8 +96,11 @@ public sealed class Simulation
     public IReadOnlyCollection<SimEvent> Events => events;
     public Alliance[] Alliances { get; }
     public Box[] Obstacles { get; }
-    public Simulation(Scenario scenario)
+    public Simulation(Scenario scenario) : this(scenario, false) { }
+    // Replay format 1 retains the v0.1.0 muzzle and pit behavior for verification.
+    internal Simulation(Scenario scenario, bool legacyReplay)
     {
+        this.legacyReplay = legacyReplay;
         scenario.Validate(); Scenario = scenario; Obstacles = Arena.Obstacles(scenario);
         projectiles = new List<Projectile>(Math.Min(scenario.Physics.MaxProjectiles, 4096));
         Alliances = [new(Rules.InitialRp + scenario.RpBonus, Rules.InitialDiscs), new(Rules.InitialRp + scenario.RpBonus, Rules.InitialDiscs)];
@@ -101,8 +111,9 @@ public sealed class Simulation
                 var x = .6f + (i % 3) * .85f; var z = .6f + (i / 3) * .85f;
                 if (!scenario.Sandbox && i == 2) { x = .6f; z = 1.5f; }
                 var p = side == 0 ? new Vector3(x, .011f, z) : new Vector3(Rules.FieldWidth - x, .011f, Rules.FieldDepth - z);
-                var robot = new Robot(robots.Count, (Side)side, scenario.Robot, p, side == 0 ? 0 : MathF.PI, Rules.InitialHp);
-                robot.Ammo = Math.Min(scenario.Robot.MagazineCapacity, Alliances[side].Reserve);
+                var spec = scenario.RobotOverrides.GetValueOrDefault(robots.Count,scenario.Robot);
+                var robot = new Robot(robots.Count, (Side)side, spec, p, side == 0 ? 0 : MathF.PI, Rules.InitialHp);
+                robot.Ammo = Math.Min(spec.MagazineCapacity, Alliances[side].Reserve);
                 Alliances[side].Reserve -= robot.Ammo;
                 robots.Add(robot);
                 if (scenario.PreloadContainers)
@@ -125,15 +136,17 @@ public sealed class Simulation
     public Alliance Team(Side side) => Alliances[(int)side];
     public static Side Opponent(Side side) => side == Side.Red ? Side.Blue : Side.Red;
     public long Ticks(float seconds) => (long)Math.Ceiling((double)seconds * Rules.TickRate - .000001);
-    private void Log(string kind, string message)
+    private void Log(string kind, string message, int robotId = -1, int relatedRobotId = -1, int value = 0,
+        Skill skill = Skill.None, ActionBlockReason reason = ActionBlockReason.Ready, long remainingTicks = 0, int missingRp = 0)
     {
-        events.Enqueue(new(Tick, kind, message));
+        events.Enqueue(new(Tick, kind, message, robotId, relatedRobotId, value, skill, reason, remainingTicks, missingRp));
         while (events.Count > 64) events.Dequeue();
     }
     public void Step(ReadOnlySpan<RobotCommand> commands)
     {
         if (Finished) return;
-        foreach (var robot in robots) { robot.PreviousPosition = robot.Position; robot.PreviousYaw = robot.Yaw; }
+        foreach (var robot in robots)
+        { robot.PreviousPosition = robot.Position; robot.PreviousYaw = robot.Yaw; robot.MovementBlockedBy = MovementBlock.None; }
         foreach (var robot in robots)
         {
             if (!robot.Alive && !robot.Stopped && Tick >= robot.RespawnAt) Revive(robot);
@@ -141,7 +154,7 @@ public sealed class Simulation
             {
                 var team = Team(robot.Side); var load = Math.Min(robot.Spec.MagazineCapacity - robot.Ammo, team.Reserve);
                 robot.Ammo += load; team.Reserve -= load; robot.PitUntil = 0;
-                Log("pit", $"{robot.Id + 1}: pit complete / +{load} discs");
+                Log("pit-complete", $"{robot.Id + 1}: pit complete / +{load} discs", robot.Id, value:load);
             }
         }
         foreach (var command in commands)
@@ -150,9 +163,14 @@ public sealed class Simulation
             if (!float.IsFinite(command.Forward) || !float.IsFinite(command.Strafe) || !float.IsFinite(command.Turn)
                 || !float.IsFinite(command.Arm) || !float.IsFinite(command.AimYaw) || !float.IsFinite(command.AimPitch)) continue;
             var robot = robots[command.RobotId];
-            if (command.EmergencyStop) { robot.Stopped = true; robot.Velocity = Vector3.Zero; Log("stop", $"{robot.Id + 1}: emergency stop"); }
+            if (command.EmergencyStop)
+            {
+                robot.Stopped = true; robot.Velocity = Vector3.Zero;
+                if (!legacyReplay) { robot.PitUntil = 0; robot.PitAuthorized = false; }
+                Log("stop", $"{robot.Id + 1}: emergency stop", robot.Id);
+            }
             if (command.Skill != Skill.None) ActivateSkill(robot.Side, command.Skill, robot.Id);
-            if (!robot.Alive || robot.Stopped || robot.PitUntil > Tick) continue;
+            if (!GetControlAvailability(robot.Id).Ready) continue;
             Move(robot, command);
             if (command.Fire) Fire(robot, command.AimYaw, command.AimPitch);
             if (command.Interact) Interact(robot, command.SpotCell);
@@ -162,11 +180,11 @@ public sealed class Simulation
         {
             if (robot.ContainerId is int id) containers[id].Position = robot.Gripper;
             if (!robot.Alive || robot.Stopped) robot.Velocity = Vector3.Zero;
-            if (robot.PitAuthorized && !robot.PitVisit && robot.Alive && Arena.InPitZone(robot.Side, robot.Body)
+            if (robot.PitAuthorized && !robot.PitVisit && robot.Alive && (legacyReplay || !robot.Stopped) && Arena.InPitZone(robot.Side, robot.Body)
                 && !robots.Any(x => x.Id != robot.Id && x.Side == robot.Side && x.PitVisit))
             {
                 robot.PitAuthorized = false; robot.PitVisit = true; robot.PitUntil = Tick + Ticks(Rules.PitSeconds);
-                robot.Velocity = Vector3.Zero; Log("pit", $"{robot.Id + 1}: pit in / {Rules.PitSeconds}s");
+                robot.Velocity = Vector3.Zero; Log("pit", $"{robot.Id + 1}: pit in / {Rules.PitSeconds}s", robot.Id);
             }
             if (robot.PitVisit && robot.PitUntil == 0 && !Arena.InPitArea(robot.Side, new(robot.Position.X, robot.Position.Z))) robot.PitVisit = false;
         }
@@ -188,27 +206,29 @@ public sealed class Simulation
         }
         if (Finished) Log("end", Result().Reason);
     }
-    private bool Fits(Robot robot, Vector3 position, float yaw)
+    private MovementBlock MovementBlockAt(Robot robot, Vector3 position, float yaw)
     {
         var body = new Box(position + new Vector3(0, robot.Spec.Height / 2, 0), robot.Body.HalfSize, yaw);
         var c = Math.Abs(MathF.Cos(yaw)); var s = Math.Abs(MathF.Sin(yaw));
         var ex = body.HalfSize.X * c + body.HalfSize.Z * s; var ez = body.HalfSize.X * s + body.HalfSize.Z * c;
-        if (position.X - ex < 0 || position.X + ex > Rules.FieldWidth || position.Z - ez < 0 || position.Z + ez > Rules.FieldDepth) return false;
-        foreach (var obstacle in Obstacles) if (body.Intersects(obstacle)) return false;
-        foreach (var other in robots) if (other.Id != robot.Id && body.Intersects(other.Body)) return false;
+        if (position.X - ex < 0 || position.X + ex > Rules.FieldWidth || position.Z - ez < 0 || position.Z + ez > Rules.FieldDepth) return MovementBlock.FieldBoundary;
+        foreach (var obstacle in Obstacles) if (body.Intersects(obstacle)) return MovementBlock.Obstacle;
+        foreach (var other in robots) if (other.Id != robot.Id && body.Intersects(other.Body)) return MovementBlock.Robot;
         // Keep robot out of opponent pit. Own pit is authorized for one visit per skill use.
         foreach (var p in body.Corners())
         {
-            if (Arena.InPitArea(Opponent(robot.Side), p)) return false;
-            if (Arena.InPitArea(robot.Side, p) && !robot.PitAuthorized && !robot.PitVisit) return false;
+            if (Arena.InPitArea(Opponent(robot.Side), p)) return MovementBlock.RestrictedPit;
+            if (Arena.InPitArea(robot.Side, p) && !robot.PitAuthorized && !robot.PitVisit) return MovementBlock.RestrictedPit;
         }
-        return true;
+        return MovementBlock.None;
     }
     private void Move(Robot robot, RobotCommand command)
     {
         var dt = DeltaTime;
         var yaw = Wrap(robot.Yaw + Math.Clamp(command.Turn, -1, 1) * robot.Spec.TurnSpeed * dt);
-        if (Fits(robot, robot.Position, yaw)) robot.Yaw = yaw;
+        var block = MovementBlockAt(robot, robot.Position, yaw);
+        if (block == MovementBlock.None) robot.Yaw = yaw;
+        else if (command.Turn != 0) robot.MovementBlockedBy |= block;
         var f = robot.Forward; var right = new Vector3(-f.Z, 0, f.X);
         var move = f * Math.Clamp(command.Forward, -1, 1) + right * (robot.Spec.Holonomic ? Math.Clamp(command.Strafe, -1, 1) : 0);
         if (move.LengthSquared() > 1) move = Vector3.Normalize(move);
@@ -218,22 +238,31 @@ public sealed class Simulation
         var next = robot.Position + robot.Velocity * dt;
         // Axis separation allows sliding along walls without penetrating their OBBs.
         var nx = new Vector3(next.X, robot.Position.Y, robot.Position.Z);
-        if (Fits(robot, nx, robot.Yaw)) robot.Position = nx; else robot.Velocity = new(0, 0, robot.Velocity.Z);
+        block = MovementBlockAt(robot, nx, robot.Yaw);
+        if (block == MovementBlock.None) robot.Position = nx;
+        else { if (next.X != robot.Position.X) robot.MovementBlockedBy |= block; robot.Velocity = new(0, 0, robot.Velocity.Z); }
         var nz = new Vector3(robot.Position.X, robot.Position.Y, next.Z);
-        if (Fits(robot, nz, robot.Yaw)) robot.Position = nz; else robot.Velocity = new(robot.Velocity.X, 0, 0);
+        block = MovementBlockAt(robot, nz, robot.Yaw);
+        if (block == MovementBlock.None) robot.Position = nz;
+        else { if (next.Z != robot.Position.Z) robot.MovementBlockedBy |= block; robot.Velocity = new(robot.Velocity.X, 0, 0); }
         robot.ArmHeight = Math.Clamp(robot.ArmHeight + Math.Clamp(command.Arm, -1, 1) * .4f * dt, robot.Spec.ArmMinHeight, robot.Spec.ArmMaxHeight);
     }
     public static float Wrap(float angle) => MathF.IEEERemainder(angle, MathF.Tau);
     private void Fire(Robot robot, float aimYaw, float aimPitch)
     {
-        if (Tick < robot.NextShotAt || (!Scenario.InfiniteAmmo && robot.Ammo <= 0) || projectiles.Count >= Scenario.Physics.MaxProjectiles) return;
-        var yaw = robot.Yaw + Math.Clamp(aimYaw, -.8f, .8f); var pitch = Math.Clamp(aimPitch, -.3f, .5f);
-        var direction = new Vector3(MathF.Cos(yaw) * MathF.Cos(pitch), MathF.Sin(pitch), MathF.Sin(yaw) * MathF.Cos(pitch));
-        var muzzle = robot.Position + new Vector3(0, robot.Spec.ShotHeight, 0) + direction * (robot.Spec.Depth / 2 + Rules.DiscRadius + .01f);
-        projectiles.Add(new() { OwnerId = robot.Id, Position = muzzle, PreviousPosition = muzzle,
-            Velocity = direction * robot.Spec.ShotSpeed });
+        if (!GetFireAvailability(robot.Id, aimYaw, aimPitch).Ready) return;
+        var (origin, muzzle, direction) = ShotGeometry(robot, aimYaw, aimPitch);
         robot.NextShotAt = Tick + Ticks(robot.Spec.ShotInterval);
         if (!Scenario.InfiniteAmmo) robot.Ammo--;
+        robot.LastShotAt = Tick; robot.LastShot = new(ShotOutcome.Fired, Tick);
+        Log("shot", $"{robot.Id + 1}: fired", robot.Id);
+        // Trace the launch corridor as well. A touching robot must not be skipped by a spawn point beyond its panel.
+        if (!legacyReplay && FirstContact(origin, muzzle, direction, robot.Id, true) is var contact && contact.Fraction <= 1)
+        {
+            ResolveContact(robot.Id, Tick, contact); return;
+        }
+        projectiles.Add(new() { OwnerId = robot.Id, Position = muzzle, PreviousPosition = muzzle,
+            Velocity = direction * robot.Spec.ShotSpeed, FiredAt = Tick });
     }
     public Box Panel(Robot robot, int index)
     {
@@ -246,7 +275,6 @@ public sealed class Simulation
     private void IntegrateProjectiles()
     {
         var dt = DeltaTime; var physics = Scenario.Physics;
-        var expansion = new Vector3(Rules.DiscRadius, Rules.DiscThickness / 2, Rules.DiscRadius);
         for (var i = projectiles.Count - 1; i >= 0; i--)
         {
             var p = projectiles[i]; p.PreviousPosition = p.Position;
@@ -254,78 +282,61 @@ public sealed class Simulation
             var horizontalSq = air.X * air.X + air.Z * air.Z;
             var acceleration = -physics.Drag * air.Length() * air + new Vector3(0, -physics.Gravity + physics.Lift * horizontalSq, 0);
             p.Velocity += acceleration * dt; p.Position += p.Velocity * dt; p.Age += dt;
-            float first = 2; Robot? hitRobot = null; var hitPanel = -1;
-            foreach (var obstacle in Obstacles)
-                if (obstacle.Sweep(p.PreviousPosition, p.Position, expansion, out var t) && t < first) first = t;
-            foreach (var robot in robots)
+            var contact = FirstContact(p.PreviousPosition,p.Position,p.Velocity,p.OwnerId,p.Age < .1f);
+            var outcome = contact.Fraction <= 1 ? contact.Outcome : p.Position.Y <= .011f + Rules.DiscThickness/2 ? ShotOutcome.GroundHit
+                : p.Age > 12 ? ShotOutcome.Expired : p.Position.X < 0 || p.Position.Z < 0 || p.Position.X > Rules.FieldWidth || p.Position.Z > Rules.FieldDepth ? ShotOutcome.FieldExit : ShotOutcome.None;
+            if (outcome != ShotOutcome.None)
             {
-                if (robot.Id == p.OwnerId && p.Age < .1f) continue;
-                var bodyHit = robot.Body.Sweep(p.PreviousPosition, p.Position, expansion, out var bodyT);
-                // Panels protrude from the chassis. Only contact with a panel causes damage.
-                for (var panel = 0; panel < 4; panel++)
-                {
-                    var box = Panel(robot, panel);
-                    var normal = new Vector3(MathF.Cos(box.Yaw), 0, MathF.Sin(box.Yaw));
-                    if (Vector3.Dot(p.Velocity, normal) >= 0) continue;
-                    if (box.Sweep(p.PreviousPosition, p.Position, expansion, out var t) && t < first && (!bodyHit || t <= bodyT + .002f))
-                    { first = t; hitRobot = robot; hitPanel = panel; }
-                }
-                if (bodyHit && bodyT < first - .002f) { first = bodyT; hitRobot = null; hitPanel = -1; }
+                if (contact.Fraction <= 1) ResolveContact(p.OwnerId,p.FiredAt,contact);
+                else RecordShotOutcome(p.OwnerId,p.FiredAt,outcome);
+                projectiles[i] = projectiles[^1]; projectiles.RemoveAt(projectiles.Count - 1);
             }
-            if (hitRobot is not null && hitPanel >= 0 && Tick >= hitRobot.NextPanelHit[hitPanel])
-            {
-                ApplyHit(robots[p.OwnerId].Side, hitRobot.Id);
-                hitRobot.NextPanelHit[hitPanel] = Tick + Ticks(Rules.PanelHitInterval);
-            }
-            if (first <= 1 || p.Position.Y <= .011f + Rules.DiscThickness / 2 || p.Age > 12
-                || p.Position.X < 0 || p.Position.Z < 0 || p.Position.X > Rules.FieldWidth || p.Position.Z > Rules.FieldDepth)
-            { projectiles[i] = projectiles[^1]; projectiles.RemoveAt(projectiles.Count - 1); }
             else projectiles[i] = p;
         }
     }
     public void ApplyHit(Side shooter, int robotId)
     {
-        if (Finished || robotId < 0 || robotId >= robots.Count) return;
+        if (!GetDamageAvailability(robotId).Ready) return;
         var robot = robots[robotId]; var defending = Team(robot.Side); var attacking = Team(shooter);
-        if (!robot.Alive || robot.Stopped || Tick < robot.InvulnerableUntil
-            || (defending.Effect == Skill.Barrier2 && Tick < defending.EffectUntil)) return;
         var damage = Rules.HitDamage;
         if (attacking.Effect is Skill.Boost1 or Skill.Boost2 && Tick < attacking.EffectUntil) damage *= 2;
         if (defending.Effect == Skill.Barrier1 && Tick < defending.EffectUntil) damage /= 2;
         damage = Math.Min(damage, robot.Hp); robot.Hp -= damage;
         if (shooter != robot.Side) attacking.Damage += damage;
-        Log("hit", $"{robot.Id + 1}: -{damage}HP");
+        Log("hit", $"{robot.Id + 1}: -{damage}HP", robot.Id, value:damage);
         if (!robot.Alive)
         {
             robot.RespawnAt = Tick + Ticks(Rules.RespawnSeconds); robot.Velocity = Vector3.Zero;
+            if (!legacyReplay) { robot.PitUntil = 0; robot.PitAuthorized = false; }
             // Knockout belongs to the opposing alliance, including friendly-fire knockouts.
             var winner = Team(Opponent(robot.Side)); winner.Vp += Rules.KnockoutVp; winner.Knockouts++;
-            Log("ko", $"{robot.Id + 1}: knockout / {Rules.RespawnSeconds}s");
+            Log("ko", $"{robot.Id + 1}: knockout / {Rules.RespawnSeconds}s", robot.Id);
         }
     }
     private void Revive(Robot robot)
     {
         robot.Hp = Rules.InitialHp; robot.RespawnAt = long.MaxValue;
         robot.InvulnerableUntil = Tick + Ticks(Rules.InvulnerabilitySeconds);
-        Log("revive", $"{robot.Id + 1}: revived");
+        Log("revive", $"{robot.Id + 1}: revived", robot.Id);
     }
     public bool ActivateSkill(Side side, Skill skill, int targetId = -1)
     {
-        if (Finished || skill == Skill.None || !Enum.IsDefined(skill)) return false;
-        var team = Team(side); var exempt = skill is Skill.PitIn or Skill.Supply;
-        var cost = skill switch { Skill.PitIn => 20, Skill.Supply => 100, Skill.Healing1 => 50, Skill.Healing2 => 100,
-            Skill.Boost1 => 50, Skill.Boost2 => 90, Skill.Barrier1 => 80, Skill.Barrier2 => 150, Skill.Regenerate => 100, _ => int.MaxValue };
-        if (team.Rp < cost || (!exempt && Tick < team.SkillReadyAt)) return false;
+        if(Finished || SkillCatalog.Find(skill) is null)return false;
+        var availability = GetSkillAvailability(side,skill,targetId);
+        if (!availability.Ready)
+        {
+            ReportRejection(side,targetId,"skill-blocked",skill,availability);
+            return false;
+        }
+        var definition = SkillCatalog.Find(skill)!;
+        var team = Team(side); var exempt = definition.ExemptFromCooldown; var cost = definition.Cost;
         Robot? target = targetId >= 0 && targetId < robots.Count ? robots[targetId] : null;
-        if (skill == Skill.PitIn && (target is null || target.Side != side || !target.Alive || target.Stopped || target.PitAuthorized || target.PitVisit)) return false;
         if (skill == Skill.Regenerate)
         {
-            target = target is not null && target.Side == side && !target.Alive && !target.Stopped
-                ? target : robots.FirstOrDefault(r => r.Side == side && !r.Alive && !r.Stopped);
-            if (target is null) return false;
+            target = RegenerateTarget(side,targetId);
         }
         team.Rp -= cost;
-        var duration = skill switch { Skill.Boost1 or Skill.Barrier1 => 20, Skill.Boost2 => 40, Skill.Barrier2 => 15, _ => 0 };
+        var duration = definition.DurationSeconds;
         if (!exempt)
         {
             team.Effect = skill; team.EffectUntil = Tick + Ticks(duration);
@@ -342,7 +353,7 @@ public sealed class Simulation
                 break;
             case Skill.Regenerate: Revive(target!); break;
         }
-        Log("skill", $"{side}: {skill} / -{cost}RP"); return true;
+        Log("skill", $"{side}: {skill} / -{cost}RP", targetId, value:cost, skill:skill); return true;
     }
     public void Foul(Side side, string reason)
     {
@@ -358,12 +369,18 @@ public sealed class Simulation
     }
     private void Interact(Robot robot, int cell)
     {
+        var availability = GetInteractAvailability(robot.Id,cell);
+        if (!legacyReplay && !availability.Ready)
+        {
+            ReportRejection(robot.Side,robot.Id,"interact-blocked",Skill.None,availability); return;
+        }
         if (robot.ContainerId is int id)
         {
             var candidates = cell >= 0 && cell < 9 ? new[] { cell } : Enumerable.Range(0, 9)
                 .OrderBy(c => Vector3.DistanceSquared(robot.Gripper, Arena.SpotPosition(robot.Side, c))).ToArray();
             foreach (var c in candidates)
             {
+                if (!legacyReplay && !GetSpotAvailability(robot,c).Ready) continue;
                 var goal = Arena.SpotPosition(robot.Side, c);
                 if (Vector3.Distance(robot.Gripper, goal) <= .28f && Math.Abs(robot.Gripper.Y - goal.Y) <= .13f)
                 {
@@ -373,14 +390,8 @@ public sealed class Simulation
             }
             return;
         }
-        Container? nearest = null; var distance = .24f * .24f;
-        foreach (var container in containers)
-        {
-            if (container.Deposited || container.HeldBy.HasValue || (container.Side.HasValue && container.Side != robot.Side)) continue;
-            var d = Vector3.DistanceSquared(container.Position, robot.Gripper);
-            if (d < distance && container.Position.Y - .06f >= robot.Spec.ArmMinHeight - .015f) { nearest = container; distance = d; }
-        }
-        if (nearest is not null) { nearest.HeldBy = robot.Id; robot.ContainerId = nearest.Id; Log("pickup", $"{robot.Id + 1}: container"); }
+        var nearest = FindPickup(robot);
+        if (nearest is not null) { nearest.HeldBy = robot.Id; robot.ContainerId = nearest.Id; Log("pickup", $"{robot.Id + 1}: container",robot.Id); }
     }
     public bool Deposit(Side side, int cell, int containerId)
     {

@@ -1,0 +1,220 @@
+{
+  "schemaVersion": 1,
+  "modules": [
+    {
+      "id": "chassis-standard",
+      "name": "標準シャーシ",
+      "slot": "Chassis",
+      "description": "バランス型の0.7mシャーシ。",
+      "addedMassKg": 0,
+      "parameters": {
+        "width": 0.7,
+        "depth": 0.7,
+        "height": 0.8,
+        "massKg": 19
+      }
+    },
+    {
+      "id": "chassis-compact",
+      "name": "軽量シャーシ",
+      "slot": "Chassis",
+      "description": "小型・軽量。狭い経路の練習向け。",
+      "addedMassKg": 0,
+      "parameters": {
+        "width": 0.55,
+        "depth": 0.6,
+        "height": 0.65,
+        "massKg": 14
+      }
+    },
+    {
+      "id": "chassis-wide",
+      "name": "大型シャーシ",
+      "slot": "Chassis",
+      "description": "競技外形上限の0.8m。HPは競技設定で共通。",
+      "addedMassKg": 0,
+      "parameters": {
+        "width": 0.8,
+        "depth": 0.8,
+        "height": 0.95,
+        "massKg": 25
+      }
+    },
+    {
+      "id": "drive-omni",
+      "name": "全方向・標準",
+      "slot": "Drive",
+      "description": "WASDで全方向に走行。",
+      "addedMassKg": 3,
+      "parameters": {
+        "maxSpeed": 2.5,
+        "acceleration": 5,
+        "turnSpeed": 2,
+        "holonomic": true
+      }
+    },
+    {
+      "id": "drive-sprint",
+      "name": "全方向・高速",
+      "slot": "Drive",
+      "description": "高加速で移動と旋回を強化。",
+      "addedMassKg": 3.8,
+      "parameters": {
+        "maxSpeed": 3.5,
+        "acceleration": 8,
+        "turnSpeed": 2.8,
+        "holonomic": true
+      }
+    },
+    {
+      "id": "drive-differential",
+      "name": "差動・高速",
+      "slot": "Drive",
+      "description": "前後と旋回で走行。左右移動は無効。",
+      "addedMassKg": 2.5,
+      "parameters": {
+        "maxSpeed": 3,
+        "acceleration": 6,
+        "turnSpeed": 2.5,
+        "holonomic": false
+      }
+    },
+    {
+      "id": "drive-tank",
+      "name": "差動・安定",
+      "slot": "Drive",
+      "description": "速度を抑えた差動走行。摩擦・慣性は近似。",
+      "addedMassKg": 4.5,
+      "parameters": {
+        "maxSpeed": 1.8,
+        "acceleration": 4,
+        "turnSpeed": 1.5,
+        "holonomic": false
+      }
+    },
+    {
+      "id": "shooter-standard",
+      "name": "射出・標準",
+      "slot": "Shooter",
+      "description": "射出間隔0.36秒、速度11.5m/s。",
+      "addedMassKg": 1,
+      "parameters": {
+        "shotSpeed": 11.5,
+        "shotHeight": 0.1725,
+        "shotInterval": 0.36
+      }
+    },
+    {
+      "id": "shooter-rapid",
+      "name": "射出・連射",
+      "slot": "Shooter",
+      "description": "射出間隔0.08秒。パネル判定は最大3Hzのまま。",
+      "addedMassKg": 2,
+      "parameters": {
+        "shotSpeed": 9.5,
+        "shotHeight": 0.1725,
+        "shotInterval": 0.08
+      }
+    },
+    {
+      "id": "shooter-precision",
+      "name": "射出・高初速",
+      "slot": "Shooter",
+      "description": "競技上限12m/s。射出間隔0.50秒。",
+      "addedMassKg": 1.5,
+      "parameters": {
+        "shotSpeed": 12,
+        "shotHeight": 0.1725,
+        "shotInterval": 0.5
+      }
+    },
+    {
+      "id": "shooter-experimental",
+      "name": "射出・実験用",
+      "slot": "Shooter",
+      "description": "16m/s・間隔0.04秒。自由練習でのみ使用可能。",
+      "addedMassKg": 3,
+      "parameters": {
+        "shotSpeed": 16,
+        "shotHeight": 0.1725,
+        "shotInterval": 0.04
+      }
+    },
+    {
+      "id": "magazine-30",
+      "name": "マガジン・30枚",
+      "slot": "Magazine",
+      "description": "容量を増加。初期装填・補給には同盟の予備ディスクを使う。",
+      "addedMassKg": 0.5,
+      "parameters": {
+        "magazineCapacity": 30
+      }
+    },
+    {
+      "id": "magazine-60",
+      "name": "マガジン・60枚",
+      "slot": "Magazine",
+      "description": "容量を増加。初期装填・補給には同盟の予備ディスクを使う。",
+      "addedMassKg": 1,
+      "parameters": {
+        "magazineCapacity": 60
+      }
+    },
+    {
+      "id": "magazine-90",
+      "name": "マガジン・90枚",
+      "slot": "Magazine",
+      "description": "容量を増加。初期装填・補給には同盟の予備ディスクを使う。",
+      "addedMassKg": 1.5,
+      "parameters": {
+        "magazineCapacity": 90
+      }
+    },
+    {
+      "id": "magazine-150",
+      "name": "マガジン・150枚",
+      "slot": "Magazine",
+      "description": "容量を増加。初期装填・補給には同盟の予備ディスクを使う。",
+      "addedMassKg": 2.5,
+      "parameters": {
+        "magazineCapacity": 150
+      }
+    },
+    {
+      "id": "arm-standard",
+      "name": "アーム・標準",
+      "slot": "Arm",
+      "description": "前方0.55m、上下0.30〜0.95m。",
+      "addedMassKg": 1.5,
+      "parameters": {
+        "armReach": 0.55,
+        "armMinHeight": 0.3,
+        "armMaxHeight": 0.95
+      }
+    },
+    {
+      "id": "arm-long",
+      "name": "アーム・延長",
+      "slot": "Arm",
+      "description": "前方0.80m、上下0.30〜1.20m。展開寸法の機構検査は未実装。",
+      "addedMassKg": 2.5,
+      "parameters": {
+        "armReach": 0.8,
+        "armMinHeight": 0.3,
+        "armMaxHeight": 1.2
+      }
+    },
+    {
+      "id": "arm-short",
+      "name": "アーム・小型",
+      "slot": "Arm",
+      "description": "前方0.35m、上下0.30〜0.85m。",
+      "addedMassKg": 1,
+      "parameters": {
+        "armReach": 0.35,
+        "armMinHeight": 0.3,
+        "armMaxHeight": 0.85
+      }
+    }
+  ]
+}

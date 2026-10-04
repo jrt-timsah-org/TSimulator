@@ -1,0 +1,33 @@
+{
+  "id": "support",
+  "name": "大容量・高初速機",
+  "robot": {
+    "name": "大容量・高初速機",
+    "width": 0.8,
+    "depth": 0.8,
+    "height": 0.95,
+    "massKg": 32.5,
+    "maxSpeed": 2.5,
+    "acceleration": 5,
+    "turnSpeed": 2,
+    "shotSpeed": 12,
+    "shotHeight": 0.1725,
+    "shotInterval": 0.5,
+    "magazineCapacity": 90,
+    "armReach": 0.55,
+    "armMinHeight": 0.3,
+    "armMaxHeight": 0.95,
+    "holonomic": true,
+    "modelPath": null,
+    "modelScale": 1,
+    "assembly": {
+      "modules": {
+        "Chassis": "chassis-wide",
+        "Drive": "drive-omni",
+        "Shooter": "shooter-precision",
+        "Magazine": "magazine-90",
+        "Arm": "arm-standard"
+      }
+    }
+  }
+}

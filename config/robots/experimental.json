@@ -1,0 +1,33 @@
+{
+  "id": "experimental",
+  "name": "自由練習・実験機",
+  "robot": {
+    "name": "自由練習・実験機",
+    "width": 0.7,
+    "depth": 0.7,
+    "height": 0.8,
+    "massKg": 29.8,
+    "maxSpeed": 3.5,
+    "acceleration": 8,
+    "turnSpeed": 2.8,
+    "shotSpeed": 16,
+    "shotHeight": 0.1725,
+    "shotInterval": 0.04,
+    "magazineCapacity": 150,
+    "armReach": 0.55,
+    "armMinHeight": 0.3,
+    "armMaxHeight": 0.95,
+    "holonomic": true,
+    "modelPath": null,
+    "modelScale": 1,
+    "assembly": {
+      "modules": {
+        "Chassis": "chassis-standard",
+        "Drive": "drive-sprint",
+        "Shooter": "shooter-experimental",
+        "Magazine": "magazine-150",
+        "Arm": "arm-standard"
+      }
+    }
+  }
+}

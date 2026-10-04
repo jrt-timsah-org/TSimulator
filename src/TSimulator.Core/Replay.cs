@@ -12,7 +12,7 @@ public sealed class ReplayWriter : IDisposable
     {
         Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(path))!);
         writer = new(path);
-        writer.WriteLine(JsonSerializer.Serialize(new ReplayHeader(1, scenario)));
+        writer.WriteLine(JsonSerializer.Serialize(new ReplayHeader(2, scenario)));
     }
     public void Write(ReadOnlySpan<RobotCommand> commands) => writer.WriteLine(JsonSerializer.Serialize(new ReplayFrame(commands.ToArray())));
     public void Complete(Simulation sim)
@@ -28,8 +28,8 @@ public static class Replay
     {
         using var reader = new StreamReader(path);
         var header = JsonSerializer.Deserialize<ReplayHeader>(reader.ReadLine() ?? "") ?? throw new InvalidDataException("Missing replay header.");
-        if (header.Format != 1) throw new InvalidDataException("Unsupported replay format.");
-        var sim = new Simulation(header.Scenario);
+        if (header.Format is not (1 or 2)) throw new InvalidDataException("Unsupported replay format.");
+        var sim = new Simulation(header.Scenario, legacyReplay:header.Format == 1);
         string? line; bool verified = false;
         while ((line = reader.ReadLine()) is not null)
         {

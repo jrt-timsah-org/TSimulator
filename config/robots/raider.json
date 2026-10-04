@@ -1,0 +1,33 @@
+{
+  "id": "raider",
+  "name": "高速・連射機",
+  "robot": {
+    "name": "高速・連射機",
+    "width": 0.55,
+    "depth": 0.6,
+    "height": 0.65,
+    "massKg": 21.8,
+    "maxSpeed": 3.5,
+    "acceleration": 8,
+    "turnSpeed": 2.8,
+    "shotSpeed": 9.5,
+    "shotHeight": 0.1725,
+    "shotInterval": 0.08,
+    "magazineCapacity": 60,
+    "armReach": 0.35,
+    "armMinHeight": 0.3,
+    "armMaxHeight": 0.85,
+    "holonomic": true,
+    "modelPath": null,
+    "modelScale": 1,
+    "assembly": {
+      "modules": {
+        "Chassis": "chassis-compact",
+        "Drive": "drive-sprint",
+        "Shooter": "shooter-rapid",
+        "Magazine": "magazine-60",
+        "Arm": "arm-short"
+      }
+    }
+  }
+}

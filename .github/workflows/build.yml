@@ -39,6 +39,17 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y xvfb libgl1 libx11-6 libxrandr2 libxi6 libxcursor1 libxinerama1
           xvfb-run -a dotnet run --project src/TSimulator.Desktop -c Release --no-build -- --smoke 10 --screenshot artifacts/smoke.png
+      - name: Robot builder, settings and recording UI flow (Linux)
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          xvfb-run -a dotnet run --project src/TSimulator.Desktop -c Release --no-build -- --smoke 180 --builder --user-data artifacts/ui-profile --automation tests/ui/builder-flow.rae --screenshot artifacts/ui-flow.png
+          xvfb-run -a dotnet run --project src/TSimulator.Desktop -c Release --no-build -- --smoke 60 --settings --scenario artifacts/ui-profile/scenario.json --user-data artifacts/ui-numeric --automation tests/ui/numeric-flow.rae --screenshot artifacts/ui-numeric.png
+          python scripts/verify-ui-flow.py artifacts/ui-profile artifacts/ui-numeric
+          for replay in artifacts/ui-profile/replays/*.jsonl; do
+            dotnet run --project src/TSimulator.Cli -c Release --no-build -- replay "$replay"
+          done
+          xvfb-run -a dotnet run --project src/TSimulator.Desktop -c Release --no-build -- --smoke 3 --builder --scenario artifacts/ui-profile/scenario.json --screenshot artifacts/builder.png
       - name: Native library compatibility (all platforms)
         run: dotnet run --project src/TSimulator.Desktop -c Release --no-build -- --native-check
       - name: Replay round-trip
@@ -54,7 +65,7 @@ jobs:
         shell: bash
         run: |
           version="${GITHUB_REF_NAME#v}"
-          if [[ "$GITHUB_REF_TYPE" != "tag" ]]; then version="0.1.0-dev"; fi
+          if [[ "$GITHUB_REF_TYPE" != "tag" ]]; then version="$(dotnet msbuild src/TSimulator.Desktop/TSimulator.Desktop.csproj -getProperty:Version)-dev"; fi
           python scripts/package.py --rid '${{ matrix.rid }}' --input artifacts/publish --version "$version"
       - uses: actions/upload-artifact@v4
         with:
@@ -63,6 +74,9 @@ jobs:
             artifacts/TSimulator-*.zip
             artifacts/TSimulator-*.sha256
             artifacts/smoke.png
+            artifacts/ui-flow.png
+            artifacts/ui-numeric.png
+            artifacts/builder.png
             artifacts/tests/*.trx
           if-no-files-found: error
   release:

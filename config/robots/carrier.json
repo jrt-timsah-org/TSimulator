@@ -1,0 +1,33 @@
+{
+  "id": "carrier",
+  "name": "コンテナ運搬機",
+  "robot": {
+    "name": "コンテナ運搬機",
+    "width": 0.55,
+    "depth": 0.6,
+    "height": 0.65,
+    "massKg": 21.0,
+    "maxSpeed": 2.5,
+    "acceleration": 5,
+    "turnSpeed": 2,
+    "shotSpeed": 11.5,
+    "shotHeight": 0.1725,
+    "shotInterval": 0.36,
+    "magazineCapacity": 30,
+    "armReach": 0.8,
+    "armMinHeight": 0.3,
+    "armMaxHeight": 1.2,
+    "holonomic": true,
+    "modelPath": null,
+    "modelScale": 1,
+    "assembly": {
+      "modules": {
+        "Chassis": "chassis-compact",
+        "Drive": "drive-omni",
+        "Shooter": "shooter-standard",
+        "Magazine": "magazine-30",
+        "Arm": "arm-long"
+      }
+    }
+  }
+}

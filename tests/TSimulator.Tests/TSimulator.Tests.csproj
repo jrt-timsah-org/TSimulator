@@ -20,6 +20,8 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\TSimulator.Core\TSimulator.Core.csproj" />
+    <Content Include="Fixtures/*.jsonl" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="../../config/**/*.json" Link="config/%(RecursiveDir)%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
 </Project>
